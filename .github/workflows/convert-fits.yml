@@ -1,5 +1,8 @@
 name: Convert FIT to JSON
 
+permissions:
+  contents: write
+
 on:
   push:
     paths:
