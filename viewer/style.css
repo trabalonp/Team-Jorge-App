@@ -1,0 +1,32 @@
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f4f6f9;
+  margin: 20px;
+}
+
+h1 {
+  color: #0078d7;
+}
+
+button {
+  display: block;
+  margin: 6px 0;
+  padding: 10px 14px;
+  border: none;
+  background: #0078d7;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+button:hover {
+  background: #005ea6;
+}
+
+#stats p {
+  margin: 4px 0;
+}
+
+#charts > div {
+  margin-top: 30px;
+}

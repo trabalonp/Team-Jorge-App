@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏃‍♂️ Visualizador de Entrenamientos</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Librerías externas -->
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+</head>
+<body>
+  <h1>🏃‍♀️ Visualizador de Entrenamientos (Team-Jorge-App)</h1>
+
+  <div id="entrenos-list"></div>
+
+  <hr>
+  <div id="dashboard" style="display:none;">
+    <h2 id="entreno-titulo"></h2>
+    <div id="map" style="height:400px;"></div>
+    <div id="stats"></div>
+    <div id="charts">
+      <div id="chart-hr"></div>
+      <div id="chart-alt"></div>
+      <div id="chart-speed"></div>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
