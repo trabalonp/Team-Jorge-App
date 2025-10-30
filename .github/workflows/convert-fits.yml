@@ -3,7 +3,7 @@ name: Convert FIT to JSON
 on:
   push:
     paths:
-      - 'fits/**.fit'      # se ejecuta al push de .fit dentro de fits/
+      - 'fits/**/*.fit'      # se ejecuta al push de .fit dentro de fits/
   workflow_dispatch: {}
 
 jobs:
@@ -25,25 +25,26 @@ jobs:
           pip install fitparse
 
       - name: Convert all FIT files to JSON
+        shell: bash
         run: |
+          shopt -s globstar nullglob
           mkdir -p converted_json
-          # Recorre todos los .fit del repo y conviértelos
-          for f in $(git ls-files 'fits/**/*.fit' || true); do
-            out="converted_json/$(basename "${f%.*}").json"
+          found=false
+          for f in fits/**/*.fit; do
+            found=true
+            # Extrae subcarpeta (por ejemplo: 2025)
+            subdir=$(dirname "${f#fits/}")
+            mkdir -p "converted_json/${subdir}"
+            out="converted_json/${subdir}/$(basename "${f%.*}").json"
+            echo "Convirtiendo $f -> $out"
             python .github/scripts/convert_fit_to_json.py "$f" "$out"
             git add "$out"
           done
+          if [ "$found" = false ]; then
+            echo "No FIT files found"
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Converted FIT -> JSON (ci)" || echo "no changes to commit"
-          git push origin HEAD:HEAD || echo "push failed"
-
-      - name: Move JSON next to FITs (optional)
-        # Si prefieres que los JSON se queden al lado de los FITs en el repo:
-        run: |
-          for f in converted_json/*.json; do
-            mv "$f" "$(dirname "./fits/$(basename "$f" .json).fit")/$(basename "$f")" || true
-          done
-          git add .
-          git commit -m "Place converted JSON files next to FITs" || echo "no changes"
-          git push origin HEAD:HEAD || echo "push failed"
+          git push || echo "push failed"
