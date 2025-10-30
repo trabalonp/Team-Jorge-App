@@ -1,32 +1,119 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🏃‍♂️ Visualizador de Entrenamientos</title>
-  <link rel="stylesheet" href="style.css">
-  <!-- Librerías externas -->
-  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<meta charset="UTF-8">
+<title>🏃 Visor de entrenamientos Garmin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Librerías -->
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; background: #fafafa; color: #222; }
+  h1 { text-align: center; }
+  #file-list { margin: 20px 0; }
+  .training-item { cursor: pointer; padding: 10px; margin: 5px; border-radius: 6px; background: white; border: 1px solid #ddd; }
+  .training-item:hover { background: #e9f5ff; }
+  #dashboard { margin-top: 30px; }
+  #map { height: 400px; margin: 20px 0; border-radius: 10px; }
+  .metric { display: inline-block; margin-right: 20px; font-weight: bold; }
+</style>
 </head>
 <body>
-  <h1>🏃‍♀️ Visualizador de Entrenamientos (Team-Jorge-App)</h1>
+<h1>🏃 Visor de entrenamientos Garmin (JSON)</h1>
 
-  <div id="entrenos-list"></div>
+<h3>Selecciona un entrenamiento:</h3>
+<div id="file-list">Cargando entrenamientos...</div>
 
-  <hr>
-  <div id="dashboard" style="display:none;">
-    <h2 id="entreno-titulo"></h2>
-    <div id="map" style="height:400px;"></div>
-    <div id="stats"></div>
-    <div id="charts">
-      <div id="chart-hr"></div>
-      <div id="chart-alt"></div>
-      <div id="chart-speed"></div>
-    </div>
-  </div>
+<div id="dashboard" style="display:none;">
+  <h2 id="title"></h2>
+  <div id="summary"></div>
+  <div id="map"></div>
+  <div id="charts"></div>
+</div>
 
-  <script src="main.js"></script>
+<script>
+const repoURL = "https://api.github.com/repos/trabalonp/Team-Jorge-App/contents/converted_json/2025";
+
+async function listarEntrenamientos() {
+  const res = await fetch(repoURL);
+  const files = await res.json();
+  const listDiv = document.getElementById("file-list");
+  listDiv.innerHTML = "";
+  const jsonFiles = files.filter(f => f.name.endsWith(".json")).sort((a,b)=> a.name.localeCompare(b.name));
+  if (jsonFiles.length === 0) listDiv.innerHTML = "<i>No se encontraron entrenamientos.</i>";
+  jsonFiles.forEach(f => {
+    const btn = document.createElement("div");
+    btn.className = "training-item";
+    const fecha = f.name.match(/(\d+)_ACTIVITY/);
+    btn.textContent = `🏁 ${fecha ? fecha[1] : f.name}`;
+    btn.onclick = ()=> cargarEntreno(f.download_url);
+    listDiv.appendChild(btn);
+  });
+}
+
+async function cargarEntreno(url) {
+  const res = await fetch(url);
+  const data = await res.json();
+  const df = data.records;
+  const s = data.activity_info.session;
+  document.getElementById("dashboard").style.display = "block";
+  document.getElementById("title").textContent = `${s.sport || "Entreno"} - ${s.start_time}`;
+  const distKm = (s.total_distance / 1000).toFixed(2);
+  const tiempoMin = (s.total_elapsed_time / 60).toFixed(1);
+  const pace = (s.total_elapsed_time / 60 / (s.total_distance / 1000)).toFixed(2);
+  document.getElementById("summary").innerHTML = `
+    <span class='metric'>📏 Distancia: ${distKm} km</span>
+    <span class='metric'>⏱️ Tiempo: ${tiempoMin} min</span>
+    <span class='metric'>🔥 Calorías: ${s.total_calories}</span><br>
+    <span class='metric'>❤️ FC media: ${s.avg_heart_rate}</span>
+    <span class='metric'>💪 FC máx: ${s.max_heart_rate}</span>
+    <span class='metric'>⚡ Ritmo medio: ${pace} min/km</span>
+  `;
+  
+  // Mapa
+  if (df.some(d => d.position_lat && d.position_long)) {
+    document.getElementById("map").innerHTML = "";
+    const map = L.map("map");
+    const coords = df.filter(d => d.position_lat && d.position_long)
+                     .map(d => [d.position_lat, d.position_long]);
+    const line = L.polyline(coords, { color: "blue", weight: 3 }).addTo(map);
+    map.fitBounds(line.getBounds());
+    L.marker(coords[0], {icon:L.icon({iconUrl:'https://cdn-icons-png.flaticon.com/512/25/25694.png',iconSize:[25,25]})}).addTo(map).bindPopup("Inicio");
+    L.marker(coords[coords.length-1], {icon:L.icon({iconUrl:'https://cdn-icons-png.flaticon.com/512/64/64572.png',iconSize:[25,25]})}).addTo(map).bindPopup("Fin");
+  } else {
+    document.getElementById("map").innerHTML = "<i>No hay datos GPS</i>";
+  }
+
+  // Gráficas
+  const chartsDiv = document.getElementById("charts");
+  chartsDiv.innerHTML = "";
+
+  function addChart(title, ykey, color) {
+    if (df.some(r => r[ykey] !== undefined)) {
+      const trace = {
+        x: df.map(r => r.timestamp),
+        y: df.map(r => r[ykey]),
+        mode: "lines",
+        line: {color},
+        name: ykey
+      };
+      const layout = {title, xaxis:{title:"Tiempo"}, yaxis:{title}, height:300, margin:{t:40,l:50,r:20,b:40}};
+      const div = document.createElement("div");
+      chartsDiv.appendChild(div);
+      Plotly.newPlot(div, [trace], layout, {responsive:true});
+    }
+  }
+
+  addChart("Frecuencia cardíaca (bpm)", "heart_rate", "red");
+  addChart("Velocidad (m/s)", "speed", "orange");
+  addChart("Ritmo (min/km)", "pace", "purple");
+  addChart("Altitud (m)", "altitude", "green");
+  addChart("Cadencia (ppm)", "cadence", "blue");
+  addChart("Potencia (W)", "power", "magenta");
+}
+
+listarEntrenamientos();
+</script>
 </body>
 </html>
